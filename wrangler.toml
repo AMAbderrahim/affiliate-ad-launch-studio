@@ -1,0 +1,5 @@
+name = "aff-ads-studio"
+main = "src/index.js"
+compatibility_date = "2023-06-28"
+account_id = "434e81601ccbe91316744c4f2ba686f3"
+workers_dev = true
