@@ -41,7 +41,8 @@ export function MarketingStrategist() {
 
       if (response.error) {
         setLogs(prev => [...prev, `Error: ${response.error}`]);
-      } else if (response.structured) {
+
+      if (response.structured) {
         setAgentOutput('marketing_strategist', response.structured);
       }
     } catch (error: any) {
