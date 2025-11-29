@@ -6,7 +6,7 @@ import { useCampaign } from '../../context/CampaignContext';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { Loader2, Play, RotateCcw, Users, Target, DollarSign } from 'lucide-react';
+import { Loader2, Play, RotateCcw, Users } from 'lucide-react';
 import { callWorker, AGENT_ROLES } from '../../services/workerService';
 
 export function MarketingStrategist() {
@@ -17,8 +17,12 @@ export function MarketingStrategist() {
   const existingOutput = getAgentOutput('marketing_strategist');
 
   const runAgent = async () => {
-    if (!campaign) return;
+    if (!campaign) {
+      console.log('❌ NO CAMPAIGN DATA');
+      return;
+    }
     
+    console.log('✅ Campaign data:', campaign);
     setIsLoading(true);
     setLogs([]);
 
@@ -35,18 +39,34 @@ export function MarketingStrategist() {
         campaignData: campaign
       });
 
+      console.log('🔥 FULL RESPONSE:', response);
+      console.log('📊 STRUCTURED DATA:', response.structured);
+      console.log('📝 LOGS:', response.logs);
+
       if (response.logs) {
         setLogs(response.logs);
       }
 
       if (response.error) {
+        console.log('❌ ERROR:', response.error);
         setLogs(prev => [...prev, `Error: ${response.error}`]);
       }
 
       if (response.structured) {
+        console.log('💾 SAVING OUTPUT:', response.structured);
         setAgentOutput('marketing_strategist', response.structured);
+        
+        // Check if it saved
+        setTimeout(() => {
+          const saved = getAgentOutput('marketing_strategist');
+          console.log('✔️ SAVED DATA CHECK:', saved);
+        }, 100);
+      } else {
+        console.log('⚠️ NO STRUCTURED DATA FOUND IN RESPONSE');
+        console.log('Available keys:', Object.keys(response));
       }
     } catch (error: any) {
+      console.error('💥 CATCH ERROR:', error);
       setLogs(['Error calling worker service: ' + error.message]);
     } finally {
       setIsLoading(false);
@@ -54,6 +74,10 @@ export function MarketingStrategist() {
   };
 
   const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
+
+  // DEBUG: Log current state
+  console.log('🎯 Current existingOutput:', existingOutput);
+  console.log('⏳ Is Loading:', isLoading);
 
   return (
     <AgentLayout
@@ -65,6 +89,39 @@ export function MarketingStrategist() {
       nextAgent="creative-strategist"
     >
       <div className="space-y-6">
+        {/* DEBUG PANEL */}
+        <Card className="border-l-4 border-l-red-500 bg-red-50">
+          <CardHeader>
+            <CardTitle>🐛 DEBUG INFO</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm font-mono">
+              <div>Campaign exists: {campaign ? '✅ YES' : '❌ NO'}</div>
+              <div>Existing output exists: {existingOutput ? '✅ YES' : '❌ NO'}</div>
+              <div>Is loading: {isLoading ? '⏳ YES' : '❌ NO'}</div>
+              {existingOutput && (
+                <div>
+                  <div>Audiences: {existingOutput.audiences?.length || 0}</div>
+                  <div>Hypotheses: {existingOutput.hypotheses?.length || 0}</div>
+                  <div>Budget splits: {existingOutput.budget_split?.length || 0}</div>
+                </div>
+              )}
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => {
+                  console.log('=== FULL STATE DUMP ===');
+                  console.log('Campaign:', campaign);
+                  console.log('Existing Output:', existingOutput);
+                  console.log('Logs:', logs);
+                }}
+              >
+                Dump State to Console
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Agent Controls */}
         <Card className="border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50/50 to-transparent">
           <CardHeader>
@@ -104,7 +161,6 @@ export function MarketingStrategist() {
                 </Button>
               )}
             </div>
-
           </CardContent>
         </Card>
 
@@ -128,53 +184,59 @@ export function MarketingStrategist() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4">
-                  {existingOutput.audiences?.map((audience: any) => (
-                    <div key={audience.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <h4 className="font-medium">{audience.name}</h4>
-                        <Badge variant="secondary">
-                          Est. CPA: {formatCurrency(audience.estimated_cpa)}
-                        </Badge>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <strong>Demographics:</strong>
-                          <p>Age: {audience.criteria.age[0]}-{audience.criteria.age[1]}</p>
+                {existingOutput.audiences && existingOutput.audiences.length > 0 ? (
+                  <div className="grid gap-4">
+                    {existingOutput.audiences.map((audience: any) => (
+                      <div key={audience.id} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-3">
+                          <h4 className="font-medium">{audience.name}</h4>
+                          <Badge variant="secondary">
+                            Est. CPA: {formatCurrency(audience.estimated_cpa)}
+                          </Badge>
                         </div>
-                        <div>
-                          <strong>Potential Reach:</strong>
-                          <p>{audience.potential_reach?.toLocaleString()} people</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <strong>Demographics:</strong>
+                            <p>Age: {audience.criteria?.age?.[0]}-{audience.criteria?.age?.[1]}</p>
+                          </div>
+                          <div>
+                            <strong>Potential Reach:</strong>
+                            <p>{audience.potential_reach?.toLocaleString()} people</p>
+                          </div>
                         </div>
-                      </div>
-                      
-                      <div className="mt-3">
-                        <strong>Interests:</strong>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {audience.criteria.interests?.map((interest: string) => (
-                            <Badge key={interest} variant="outline" className="text-xs">
-                              {interest}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-
-                      {audience.criteria.behaviors && (
+                        
                         <div className="mt-3">
-                          <strong>Behaviors:</strong>
+                          <strong>Interests:</strong>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {audience.criteria.behaviors.map((behavior: string) => (
-                              <Badge key={behavior} variant="outline" className="text-xs">
-                                {behavior}
+                            {audience.criteria?.interests?.map((interest: string) => (
+                              <Badge key={interest} variant="outline" className="text-xs">
+                                {interest}
                               </Badge>
                             ))}
                           </div>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+
+                        {audience.criteria?.behaviors && (
+                          <div className="mt-3">
+                            <strong>Behaviors:</strong>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {audience.criteria.behaviors.map((behavior: string) => (
+                                <Badge key={behavior} variant="outline" className="text-xs">
+                                  {behavior}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-red-600 p-4 border border-red-300 rounded">
+                    ⚠️ No audiences found in output
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -184,24 +246,30 @@ export function MarketingStrategist() {
                 <CardTitle>Performance Hypotheses</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {existingOutput.hypotheses?.map((hypothesis: any) => (
-                    <div key={hypothesis.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-medium">{hypothesis.angle}</h4>
-                        <Badge 
-                          variant={hypothesis.expected_lift.includes('-') ? 'default' : 'secondary'}
-                        >
-                          {hypothesis.expected_lift} {hypothesis.metric}
-                        </Badge>
+                {existingOutput.hypotheses && existingOutput.hypotheses.length > 0 ? (
+                  <div className="space-y-4">
+                    {existingOutput.hypotheses.map((hypothesis: any, idx: number) => (
+                      <div key={hypothesis.id || idx} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-medium">{hypothesis.angle}</h4>
+                          <Badge 
+                            variant={hypothesis.expected_lift?.includes('-') ? 'default' : 'secondary'}
+                          >
+                            {hypothesis.expected_lift} {hypothesis.metric}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-2">
+                          <strong>Target:</strong> {existingOutput.audiences?.find((a: any) => a.id === hypothesis.audience_id)?.name}
+                        </p>
+                        <p className="text-sm">{hypothesis.reasoning}</p>
                       </div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        <strong>Target:</strong> {existingOutput.audiences?.find((a: any) => a.id === hypothesis.audience_id)?.name}
-                      </p>
-                      <p className="text-sm">{hypothesis.reasoning}</p>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-red-600 p-4 border border-red-300 rounded">
+                    ⚠️ No hypotheses found in output
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -211,22 +279,28 @@ export function MarketingStrategist() {
                 <CardTitle>Recommended Budget Split</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {existingOutput.budget_split?.map((split: any) => (
-                    <div key={split.channel} className="flex justify-between items-center p-3 border rounded">
-                      <div>
-                        <div className="font-medium capitalize">{split.channel}</div>
-                        <div className="text-sm text-gray-600">{split.reasoning}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-medium">{split.pct}%</div>
-                        <div className="text-sm text-gray-600">
-                          {formatCurrency((campaign?.budget.daily || 0) * split.pct / 100)}/day
+                {existingOutput.budget_split && existingOutput.budget_split.length > 0 ? (
+                  <div className="space-y-4">
+                    {existingOutput.budget_split.map((split: any, idx: number) => (
+                      <div key={split.channel || idx} className="flex justify-between items-center p-3 border rounded">
+                        <div>
+                          <div className="font-medium capitalize">{split.channel}</div>
+                          <div className="text-sm text-gray-600">{split.reasoning}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">{split.pct}%</div>
+                          <div className="text-sm text-gray-600">
+                            {formatCurrency((campaign?.budget.daily || 0) * split.pct / 100)}/day
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-red-600 p-4 border border-red-300 rounded">
+                    ⚠️ No budget split found in output
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -248,7 +322,7 @@ export function MarketingStrategist() {
           <Card>
             <CardContent className="p-8 text-center">
               <p className="text-gray-600 mb-4">
-                Click "Run Analysis" to generate marketing strategy recommendations
+                Click "Generate Strategy" to generate marketing strategy recommendations
               </p>
             </CardContent>
           </Card>
